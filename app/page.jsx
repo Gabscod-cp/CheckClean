@@ -113,12 +113,38 @@ function Hoje({ limpezas, onDone }) {
     [pend]
   );
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const done = limpezas.filter((c) => c.status === "pronto" && new Date(c.data_saida + "T00:00:00") >= monthStart);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const done = limpezas.filter((c) => {
+    if (c.status !== "pronto") return false;
+    const d = new Date(c.data_saida + "T00:00:00");
+    return d >= monthStart && d < monthEnd;
+  });
   const faturado = done.reduce((s, c) => s + Number(c.valor), 0);
   const aReceber = pend.reduce((s, c) => s + Number(c.valor), 0);
-  const byOwner = {};
-  done.forEach((c) => { const n = c.apartamentos?.proprietarios?.nome || "—"; byOwner[n] = (byOwner[n] || 0) + Number(c.valor); });
   const monthName = today.toLocaleDateString("pt-BR", { month: "long" });
+
+  // Relatório navegável — recebido por proprietário em qualquer mês.
+  const [mesRelatorio, setMesRelatorio] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const relatorioEhMesAtual = mesRelatorio.getFullYear() === today.getFullYear() && mesRelatorio.getMonth() === today.getMonth();
+  const relatorioInicio = mesRelatorio;
+  const relatorioFim = new Date(mesRelatorio.getFullYear(), mesRelatorio.getMonth() + 1, 1);
+  const doneRelatorio = limpezas.filter((c) => {
+    if (c.status !== "pronto") return false;
+    const d = new Date(c.data_saida + "T00:00:00");
+    return d >= relatorioInicio && d < relatorioFim;
+  });
+  const totalRelatorio = doneRelatorio.reduce((s, c) => s + Number(c.valor), 0);
+  const byOwnerRelatorio = {};
+  doneRelatorio.forEach((c) => {
+    const id = c.apartamentos?.proprietario_id || "sem-dono";
+    const nome = c.apartamentos?.proprietarios?.nome || "—";
+    if (!byOwnerRelatorio[id]) byOwnerRelatorio[id] = { nome, total: 0, itens: [] };
+    byOwnerRelatorio[id].total += Number(c.valor);
+    byOwnerRelatorio[id].itens.push(c);
+  });
+  Object.values(byOwnerRelatorio).forEach((o) => o.itens.sort((a, b) => a.data_saida.localeCompare(b.data_saida)));
+  const mesParam = `${mesRelatorio.getFullYear()}-${String(mesRelatorio.getMonth() + 1).padStart(2, "0")}`;
+  const mudarMesRelatorio = (delta) => setMesRelatorio((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 
   return (
     <div>
@@ -174,15 +200,72 @@ function Hoje({ limpezas, onDone }) {
         </>
       )}
 
-      <div className="section-label">Recebido no mês, por proprietário</div>
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        {Object.keys(byOwner).length === 0 ? <div style={{ padding: 16, color: "var(--muted)", fontSize: 14 }}>Nada recebido ainda.</div>
-          : Object.entries(byOwner).map(([nome, v], i) => (
-            <div key={nome} style={{ display: "flex", justifyContent: "space-between", padding: "13px 16px", borderTop: i ? "1px solid var(--line-soft)" : "none" }}>
-              <span style={{ fontWeight: 500 }}>{nome}</span>
-              <span style={{ fontWeight: 700, color: "var(--brand)" }}>{brl(v)}</span>
-            </div>))}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "26px 0 8px" }}>
+        <div className="section-label" style={{ margin: 0 }}>Relatório por proprietário</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 10 }}>
+          <button onClick={() => mudarMesRelatorio(-1)} aria-label="Mês anterior" style={{
+            width: 28, height: 28, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
+            color: "var(--ink)", fontWeight: 700, fontSize: 14, lineHeight: 1, flexShrink: 0,
+          }}>‹</button>
+          <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 92, textAlign: "center", textTransform: "capitalize", color: "var(--ink)" }}>
+            {mesRelatorio.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+          </span>
+          <button onClick={() => mudarMesRelatorio(1)} disabled={relatorioEhMesAtual} aria-label="Próximo mês" style={{
+            width: 28, height: 28, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
+            color: relatorioEhMesAtual ? "var(--faint)" : "var(--ink)", fontWeight: 700, fontSize: 14, lineHeight: 1,
+            opacity: relatorioEhMesAtual ? 0.5 : 1, flexShrink: 0,
+          }}>›</button>
+        </div>
       </div>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "13px 16px", background: "var(--brand-soft)" }}>
+          <span style={{ fontWeight: 700, color: "var(--ink)" }}>Total do mês ({doneRelatorio.length})</span>
+          <span style={{ fontWeight: 800, color: "var(--brand)" }}>{brl(totalRelatorio)}</span>
+        </div>
+        {Object.keys(byOwnerRelatorio).length === 0 ? <div style={{ padding: 16, color: "var(--muted)", fontSize: 14 }}>Nada recebido nesse mês.</div>
+          : Object.entries(byOwnerRelatorio).map(([id, o]) => (
+            <RelatorioOwnerRow key={id} proprietarioId={id} nome={o.nome} total={o.total} itens={o.itens} mesParam={mesParam} />
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function RelatorioOwnerRow({ proprietarioId, nome, total, itens, mesParam }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div style={{ borderTop: "1px solid var(--line-soft)" }}>
+      <button
+        onClick={() => setAberto((s) => !s)}
+        style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px", background: "transparent", border: "none", textAlign: "left" }}
+      >
+        <span style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 7, color: "var(--ink)" }}>
+          <span style={{ color: "var(--faint)", fontSize: 11, transform: aberto ? "rotate(90deg)" : "none", transition: "transform .15s var(--ease)", display: "inline-block" }}>▶</span>
+          {nome} <span style={{ color: "var(--faint)", fontWeight: 500, fontSize: 12 }}>· {itens.length} {itens.length === 1 ? "limpeza" : "limpezas"}</span>
+        </span>
+        <span style={{ fontWeight: 700, color: "var(--brand)" }}>{brl(total)}</span>
+      </button>
+      {aberto && (
+        <div style={{ padding: "0 16px 14px", background: "#FBFAF7" }}>
+          {itens.map((c) => (
+            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: "1px solid var(--line-soft)", fontSize: 13 }}>
+              <div>
+                <div style={{ fontWeight: 600, color: "var(--ink)" }}>{c.apartamentos?.apelido}</div>
+                <div style={{ color: "var(--muted)", fontSize: 12 }}>{c.apartamentos?.predios?.nome} · saída {fmtDay(c.data_saida)}</div>
+              </div>
+              <div style={{ fontWeight: 700, color: "var(--ink)" }}>{brl(c.valor)}</div>
+            </div>
+          ))}
+          <a
+            href={`/relatorio/${proprietarioId}?nome=${encodeURIComponent(nome)}&mes=${mesParam}`}
+            target="_blank" rel="noopener noreferrer"
+            className="btn-outline"
+            style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 12 }}
+          >
+            📄 Baixar PDF
+          </a>
+        </div>
+      )}
     </div>
   );
 }

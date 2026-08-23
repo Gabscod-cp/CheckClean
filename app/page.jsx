@@ -319,7 +319,6 @@ function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio,
   }
 
   async function excluir(a) {
-    if (!confirm(`Excluir "${a.apelido}"? Ele some da lista, mas o histórico de limpezas é mantido.`)) return;
     try {
       await excluirApartamento(a.id);
       await onCreate();
@@ -328,11 +327,7 @@ function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio,
     }
   }
 
-  async function excluirDono(p, aptosDele) {
-    const aviso = aptosDele.length > 0
-      ? `${p.nome} tem ${aptosDele.length} ${aptosDele.length === 1 ? "apartamento" : "apartamentos"} ativo(s). Eles vão ficar em "Sem proprietário" até você reatribuir a outro dono. Excluir mesmo assim?`
-      : `Excluir "${p.nome}"? Ele some da lista, mas o histórico de limpezas é mantido.`;
-    if (!confirm(aviso)) return;
+  async function excluirDono(p) {
     try {
       await excluirProprietario(p.id);
       await onCreate();
@@ -366,7 +361,10 @@ function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio,
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <button className="btn-outline" onClick={() => copiarLink(p)}>Copiar link</button>
-                  <button className="btn-danger" onClick={() => excluirDono(p, aptos)}>Excluir</button>
+                  <ConfirmDeleteButton
+                    onConfirm={() => excluirDono(p)}
+                    armedLabel={aptos.length > 0 ? `${aptos.length} apto(s) ficam sem dono — confirmar?` : "Confirmar exclusão?"}
+                  />
                 </div>
               </div>
               {aptos.length === 0 ? (
@@ -417,9 +415,30 @@ function AptCard({ a, onEdit, onDelete }) {
       {a.obs_fixa && <div style={{ fontSize: 12, color: "var(--faint)" }}>📝 {a.obs_fixa}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
         <button className="btn-ghost" style={{ flex: 1 }} onClick={onEdit}>Editar</button>
-        <button className="btn-danger" style={{ flex: 1 }} onClick={onDelete}>Excluir</button>
+        <ConfirmDeleteButton onConfirm={onDelete} style={{ flex: 1 }} />
       </div>
     </div>
+  );
+}
+
+function ConfirmDeleteButton({ onConfirm, label = "Excluir", armedLabel = "Confirmar exclusão?", className = "btn-danger", style }) {
+  const [armado, setArmado] = useState(false);
+
+  useEffect(() => {
+    if (!armado) return;
+    const t = setTimeout(() => setArmado(false), 4000);
+    return () => clearTimeout(t);
+  }, [armado]);
+
+  return (
+    <button
+      type="button"
+      className={className}
+      style={{ ...style, ...(armado ? { background: "var(--amber)", borderColor: "var(--amber)", color: "#fff" } : {}) }}
+      onClick={() => { if (armado) { setArmado(false); onConfirm(); } else { setArmado(true); } }}
+    >
+      {armado ? armedLabel : label}
+    </button>
   );
 }
 

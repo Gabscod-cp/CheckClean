@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   getLimpezas, getApartamentos, getPredios, getProprietarios,
   marcarPronto, criarPredio, criarProprietario, criarApartamento,
-  atualizarApartamento, excluirApartamento,
+  atualizarApartamento, excluirApartamento, excluirProprietario,
 } from "../lib/data";
 
 // ——— utilitários ———
@@ -86,7 +86,7 @@ export default function Admin() {
           <Cadastro
             apartamentos={apartamentos} predios={predios} proprietarios={proprietarios}
             onCreate={recarregar} criarPredio={criarPredio} criarProprietario={criarProprietario} criarApartamento={criarApartamento}
-            atualizarApartamento={atualizarApartamento} excluirApartamento={excluirApartamento}
+            atualizarApartamento={atualizarApartamento} excluirApartamento={excluirApartamento} excluirProprietario={excluirProprietario}
           />
         )}
         {tab === "equipe" && <Equipe limpezas={limpezas} onDone={async (id) => { await marcarPronto(id); await recarregar(); }} />}
@@ -308,7 +308,7 @@ function CardHoje({ c, onDone }) {
 }
 
 // ═══════════ CADASTRO ═══════════
-function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio, criarProprietario, criarApartamento, atualizarApartamento, excluirApartamento }) {
+function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio, criarProprietario, criarApartamento, atualizarApartamento, excluirApartamento, excluirProprietario }) {
   const [open, setOpen] = useState(false); // true = criando novo
   const [editando, setEditando] = useState(null); // apartamento sendo editado
 
@@ -322,6 +322,19 @@ function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio,
     if (!confirm(`Excluir "${a.apelido}"? Ele some da lista, mas o histórico de limpezas é mantido.`)) return;
     try {
       await excluirApartamento(a.id);
+      await onCreate();
+    } catch (e) {
+      alert("Não deu pra excluir: " + e.message);
+    }
+  }
+
+  async function excluirDono(p, aptosDele) {
+    const aviso = aptosDele.length > 0
+      ? `${p.nome} tem ${aptosDele.length} ${aptosDele.length === 1 ? "apartamento" : "apartamentos"} ativo(s). Eles vão ficar em "Sem proprietário" até você reatribuir a outro dono. Excluir mesmo assim?`
+      : `Excluir "${p.nome}"? Ele some da lista, mas o histórico de limpezas é mantido.`;
+    if (!confirm(aviso)) return;
+    try {
+      await excluirProprietario(p.id);
       await onCreate();
     } catch (e) {
       alert("Não deu pra excluir: " + e.message);
@@ -351,7 +364,10 @@ function Cadastro({ apartamentos, predios, proprietarios, onCreate, criarPredio,
                 <div style={{ fontWeight: 700, fontSize: 15, fontFamily: "'Bricolage Grotesque',sans-serif" }}>
                   {p.nome} <span style={{ color: "var(--faint)", fontWeight: 500, fontSize: 12.5 }}>· {aptos.length} {aptos.length === 1 ? "apto" : "aptos"}</span>
                 </div>
-                <button className="btn-outline" onClick={() => copiarLink(p)}>Copiar link</button>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button className="btn-outline" onClick={() => copiarLink(p)}>Copiar link</button>
+                  <button className="btn-danger" onClick={() => excluirDono(p, aptos)}>Excluir</button>
+                </div>
               </div>
               {aptos.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--faint)", marginTop: 8 }}>Nenhum apartamento ainda.</div>

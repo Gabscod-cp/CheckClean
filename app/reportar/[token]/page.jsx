@@ -212,13 +212,17 @@ function Historico({ limpezas }) {
   const totalMes = concluidasMes.reduce((s, l) => s + Number(l.valor), 0);
 
   return (
-    <div style={{ maxWidth: 480, margin: "14px auto 0" }}>
+    <div style={{ maxWidth: 900, margin: "14px auto 0" }}>
       <div className="in" style={{
         background: "linear-gradient(155deg,var(--ink2),#3B2230)", color: "#fff", borderRadius: "var(--radius-xl)",
-        padding: 20, boxShadow: "var(--shadow-md)", position: "relative", overflow: "hidden",
+        padding: 22, boxShadow: "var(--shadow-md)", position: "relative", overflow: "hidden",
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Fechamento — {mesNome}</div>
+        <div style={{
+          position: "absolute", top: -60, right: -60, width: 180, height: 180, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(168,80,106,.35), transparent 70%)",
+        }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
+          <div style={{ fontSize: 12.5, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Fechamento — {mesNome}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <button onClick={() => mudarMes(-1)} aria-label="Mês anterior" style={{
               width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
@@ -230,8 +234,11 @@ function Historico({ limpezas }) {
             }}>›</button>
           </div>
         </div>
-        <div style={{ fontSize: 32, fontWeight: 800, marginTop: 3, fontFamily: "'Bricolage Grotesque',sans-serif" }}>{brl(totalMes)}</div>
-        <div style={{ fontSize: 12.5, color: "#B99298", marginTop: 8 }}>{concluidasMes.length} {concluidasMes.length === 1 ? "limpeza concluída" : "limpezas concluídas"} nesse mês</div>
+        <div style={{ fontSize: 36, fontWeight: 800, marginTop: 3, fontFamily: "'Bricolage Grotesque',sans-serif", position: "relative" }}>{brl(totalMes)}</div>
+        <div style={{ display: "flex", gap: 26, marginTop: 15, fontSize: 12.5, position: "relative" }}>
+          <div><div style={{ color: "#B99298" }}>Concluídas nesse mês</div><div style={{ fontWeight: 700, fontSize: 16.5, marginTop: 2 }}>{concluidasMes.length}</div></div>
+          <div><div style={{ color: "#B99298" }}>Aguardando limpeza</div><div style={{ fontWeight: 700, fontSize: 16.5, marginTop: 2 }}>{pendentes.length}</div></div>
+        </div>
       </div>
 
       <div className="section-label">Aguardando limpeza ({pendentes.length})</div>
@@ -239,33 +246,40 @@ function Historico({ limpezas }) {
         <div className="card" style={{ borderStyle: "dashed", padding: 18, textAlign: "center", color: "var(--muted)", marginTop: 10, fontSize: 13.5 }}>
           Nenhuma limpeza avisada no momento. 🌿
         </div>
-      ) : pendentes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+      ) : (
+        <div className="grid-2">
+          {pendentes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+        </div>
+      )}
 
       <div className="section-label">Concluídas — {mesNome}</div>
       {concluidasMes.length === 0 ? (
         <div className="card" style={{ borderStyle: "dashed", padding: 18, textAlign: "center", color: "var(--muted)", marginTop: 10, fontSize: 13.5 }}>
           Nenhuma limpeza concluída nesse mês.
         </div>
-      ) : concluidasMes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+      ) : (
+        <div className="grid-2">
+          {concluidasMes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+        </div>
+      )}
     </div>
   );
 }
 
 function ItemHistorico({ l }) {
   const feita = l.status === "pronto";
+  const accent = feita ? "var(--brand)" : "var(--gold)";
+  const tagBg = feita ? "var(--brand-soft)" : "var(--gold-soft)";
   return (
-    <div className="card" style={{ marginTop: 9, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-      <div>
-        <div style={{ fontWeight: 700 }}>{l.apartamento}</div>
-        <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          Saída {fmtDay(l.data_saida)}{l.data_entrada ? ` · Entrada ${fmtDay(l.data_entrada)}` : ""}
-        </div>
+    <div className="card card-hover in" style={{ borderLeft: `4px solid ${accent}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ fontWeight: 700, fontSize: 16.5 }}>{l.apartamento}</div>
+        <span className="chip" style={{ background: tagBg, color: accent }}>{feita ? "Feita" : "Aguardando"}</span>
       </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <span className="chip" style={{ background: feita ? "var(--brand-soft)" : "var(--gold-soft)", color: feita ? "var(--brand)" : "var(--gold)" }}>
-          {feita ? "Feita" : "Aguardando"}
-        </span>
-        <div style={{ fontWeight: 700, marginTop: 5, fontSize: 13.5 }}>{brl(l.valor)}</div>
+      <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+        <span>Saída <b style={{ color: "var(--ink)" }}>{fmtDay(l.data_saida)}</b></span>
+        {l.data_entrada && <span>Entrada <b style={{ color: "var(--ink)" }}>{fmtDay(l.data_entrada)}</b></span>}
+        <span style={{ marginLeft: "auto", fontWeight: 700, color: "var(--ink)" }}>{brl(l.valor)}</span>
       </div>
     </div>
   );

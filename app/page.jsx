@@ -518,13 +518,26 @@ function AptForm({ apto, predios, proprietarios, criarPredio, criarProprietario,
 // ═══════════ EQUIPE ═══════════
 function Equipe({ limpezas, onDone }) {
   const [showTexto, setShowTexto] = useState(false);
-  // Só o que já pode ser limpo hoje — apartamentos com saída futura ainda não estão liberados.
+  const [dia, setDia] = useState("hoje"); // "hoje" | "amanha"
+
+  const diaAlvo = useMemo(() => {
+    const d = new Date(today);
+    if (dia === "amanha") d.setDate(d.getDate() + 1);
+    return d;
+  }, [dia]);
+
+  // Hoje: o que já pode ser limpo (saída hoje ou atrasada). Amanhã: prévia pra preparar o aviso à noite.
   const pend = useMemo(
-    () => limpezas.filter((c) => c.status === "pendente" && daysBetween(c.data_saida) <= 0).sort(ordenarFila),
-    [limpezas]
+    () => limpezas.filter((c) => {
+      if (c.status !== "pendente") return false;
+      const dSai = daysBetween(c.data_saida);
+      return dia === "hoje" ? dSai <= 0 : dSai === 1;
+    }).sort(ordenarFila),
+    [limpezas, dia]
   );
 
-  const texto = "🧹 *Roteiro de limpeza — " + today.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + "*\n\n" +
+  const rotuloDia = dia === "hoje" ? "hoje" : "amanhã";
+  const texto = "🧹 *Roteiro de limpeza — " + diaAlvo.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + "*\n\n" +
     pend.map((c, i) => {
       const a = c.apartamentos || {};
       const nota = [a.obs_fixa, c.obs].filter(Boolean).join(" · ");
@@ -536,12 +549,25 @@ function Equipe({ limpezas, onDone }) {
   return (
     <div>
       <header>
-        <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "capitalize", fontWeight: 600 }}>{today.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</div>
+        <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "capitalize", fontWeight: 600 }}>{diaAlvo.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</div>
         <h1 style={{ margin: "3px 0 0", fontSize: 28, fontWeight: 800, letterSpacing: "-.02em" }}>Roteiro da equipe</h1>
         <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "8px 0 0", lineHeight: 1.5 }}>Só o essencial pra quem limpa: endereço, ordem e o que fazer. Sem valores.</p>
       </header>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <button onClick={() => setDia("hoje")} style={{
+          flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+          border: `1.5px solid ${dia === "hoje" ? "var(--brand)" : "var(--line)"}`,
+          background: dia === "hoje" ? "var(--brand-soft)" : "#fff", color: dia === "hoje" ? "var(--brand)" : "var(--muted)",
+        }}>Hoje</button>
+        <button onClick={() => setDia("amanha")} style={{
+          flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+          border: `1.5px solid ${dia === "amanha" ? "var(--brand)" : "var(--line)"}`,
+          background: dia === "amanha" ? "var(--brand-soft)" : "#fff", color: dia === "amanha" ? "var(--brand)" : "var(--muted)",
+        }}>Amanhã</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>Enviar no WhatsApp</a>
         <button className="btn-ghost" style={{ padding: "0 18px" }} onClick={() => setShowTexto((s) => !s)}>Ver texto</button>
       </div>
@@ -550,8 +576,8 @@ function Equipe({ limpezas, onDone }) {
         <div className="in" style={{ background: "#0B1B18", color: "#E8F0EE", borderRadius: "var(--radius-md)", padding: 15, marginTop: 12, fontSize: 13, whiteSpace: "pre-wrap", lineHeight: 1.55, fontFamily: "ui-monospace,monospace", boxShadow: "var(--shadow-sm)" }}>{texto}</div>
       )}
 
-      <div className="section-label">Ordem de hoje ({pend.length})</div>
-      {pend.length === 0 ? <Empty>Nenhuma limpeza pra hoje. 🌿</Empty> : pend.map((c, i) => {
+      <div className="section-label">Ordem de {rotuloDia} ({pend.length})</div>
+      {pend.length === 0 ? <Empty>Nenhuma limpeza pra {rotuloDia}. 🌿</Empty> : pend.map((c, i) => {
         const a = c.apartamentos || {};
         const dIn = daysBetween(c.data_entrada);
         const urgent = dIn <= 1, soon = dIn > 1 && dIn <= 3;
@@ -576,7 +602,7 @@ function Equipe({ limpezas, onDone }) {
               )}
               <a href={maps} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 13.5, color: "var(--brand)", marginTop: 3, textDecoration: "none", fontWeight: 500 }}>📍 {a.predios?.endereco || "endereço não cadastrado"}</a>
               {nota && <div style={{ marginTop: 8, fontSize: 13, background: "#F7F6F2", borderRadius: 10, padding: "8px 10px", color: "#4A5350" }}>📝 {nota}</div>}
-              <button className="btn-outline" style={{ marginTop: 10 }} onClick={() => onDone(c.id)}>Marcar feito ✓</button>
+              {dia === "hoje" && <button className="btn-outline" style={{ marginTop: 10 }} onClick={() => onDone(c.id)}>Marcar feito ✓</button>}
             </div>
           </div>
         );

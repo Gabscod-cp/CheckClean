@@ -148,10 +148,8 @@ function ReportarForm() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
-            <Campo label="Próxima entrada (opcional)"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
-          </div>
+          <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
+          <Campo label="Próxima entrada (opcional)"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
 
           {entrada && (
             <Campo label="Horário de entrada do hóspede">

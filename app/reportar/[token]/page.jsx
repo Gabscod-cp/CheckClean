@@ -126,7 +126,7 @@ function ReportarForm() {
         }}>🧹</div>
         <div>
           <div style={{ fontWeight: 700 }}>{primeiroNome ? `Oi, ${primeiroNome}! 👋` : "Facilidade ADM"}</div>
-          <div style={{ fontSize: 13, color: "#3B5B54" }}>Avise limpezas e acompanhe o que deve ser pago por aqui.</div>
+          <div style={{ fontSize: 13, color: "#3B5B54" }}>Avise limpezas e acompanhe o fechamento do mês por aqui.</div>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ function Historico({ limpezas }) {
         padding: 20, boxShadow: "var(--shadow-md)", position: "relative", overflow: "hidden",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Total a pagar — {mesNome}</div>
+          <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Fechamento — {mesNome}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <button onClick={() => mudarMes(-1)} aria-label="Mês anterior" style={{
               width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",

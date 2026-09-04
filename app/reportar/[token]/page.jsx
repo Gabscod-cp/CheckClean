@@ -1,11 +1,12 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { aptosDoProprietario, registrarLimpeza } from "../../../lib/data";
+import { aptosDoProprietario, limpezasDoProprietario, registrarLimpeza } from "../../../lib/data";
 
+const brl = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR");
 const hoje = () => new Date().toISOString().slice(0, 10);
 const maisDias = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
-const fmtDay = (iso) => { const [, m, d] = iso.split("-"); return `${d}/${m}`; };
+const fmtDay = (iso) => { if (!iso) return "—"; const [, m, d] = iso.split("-"); return `${d}/${m}`; };
 
 export default function Reportar() {
   return (
@@ -19,7 +20,9 @@ function ReportarForm() {
   const { token } = useParams();
   const searchParams = useSearchParams();
   const primeiroNome = (searchParams.get("nome") || "").trim().split(" ")[0] || "";
+  const [aba, setAba] = useState("avisar");
   const [aptos, setAptos] = useState(null);
+  const [limpezas, setLimpezas] = useState([]);
   const [erro, setErro] = useState("");
   const [aptId, setAptId] = useState("");
   const [saida, setSaida] = useState(hoje());
@@ -29,6 +32,15 @@ function ReportarForm() {
   const [enviando, setEnviando] = useState(false);
   const [ok, setOk] = useState(false);
 
+  async function carregarHistorico() {
+    try {
+      const l = await limpezasDoProprietario(token);
+      setLimpezas(l || []);
+    } catch (e) {
+      // silencioso: a aba "Avisar" continua funcionando mesmo se o histórico falhar
+    }
+  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -37,15 +49,23 @@ function ReportarForm() {
         if (data && data.length) setAptId(data[0].id);
       } catch (e) {
         setErro("Não conseguimos abrir este link. Confira com quem te enviou.");
+        return;
       }
+      await carregarHistorico();
     })();
   }, [token]);
+
+  const pendentesDoApto = useMemo(
+    () => limpezas.filter((l) => l.status === "pendente" && l.apartamento === aptos?.find((a) => a.id === aptId)?.apelido),
+    [limpezas, aptos, aptId]
+  );
 
   async function enviar() {
     setEnviando(true);
     try {
       await registrarLimpeza(token, aptId, saida, entrada, obs.trim(), antesDas15h);
       setOk(true);
+      await carregarHistorico();
     } catch (e) {
       setErro("Não deu pra enviar: " + e.message);
       setEnviando(false);
@@ -82,7 +102,11 @@ function ReportarForm() {
             A limpeza do <b style={{ color: "var(--ink)" }}>{nome}</b> já entrou na lista. Saída {fmtDay(saida)}, entrada {fmtDay(entrada)}.
           </p>
           <button className="btn-outline" style={{ width: "100%", marginTop: 18, padding: 13, fontSize: 15 }}
-            onClick={() => { setOk(false); setObs(""); setAntesDas15h(false); setEnviando(false); }}>
+            onClick={() => { setOk(false); setObs(""); setAntesDas15h(false); setEnviando(false); setAba("historico"); }}>
+            Ver meu histórico
+          </button>
+          <button onClick={() => { setOk(false); setObs(""); setAntesDas15h(false); setEnviando(false); }}
+            style={{ width: "100%", border: "none", background: "transparent", color: "var(--muted)", fontWeight: 600, padding: 12, fontSize: 14, marginTop: 4 }}>
             Avisar outra limpeza
           </button>
         </div>
@@ -101,58 +125,130 @@ function ReportarForm() {
           alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "var(--shadow-xs)",
         }}>🧹</div>
         <div>
-          <div style={{ fontWeight: 700 }}>{primeiroNome ? `Oi, ${primeiroNome}! 👋` : "Avisar uma limpeza"}</div>
-          <div style={{ fontSize: 13, color: "#3B5B54" }}>Preencha os dias e a gente cuida do resto.</div>
+          <div style={{ fontWeight: 700 }}>{primeiroNome ? `Oi, ${primeiroNome}! 👋` : "Facilidade ADM"}</div>
+          <div style={{ fontSize: 13, color: "#3B5B54" }}>Avise limpezas e acompanhe seu faturamento por aqui.</div>
         </div>
       </div>
 
-      <div className="card in" style={{ padding: 20, marginTop: 14, maxWidth: 480, margin: "14px auto 0" }}>
-        <Campo label="Qual apartamento?">
-          <select className="input" value={aptId} onChange={(e) => setAptId(e.target.value)}>
-            {aptos.map((a) => <option key={a.id} value={a.id}>{a.apelido} — {a.predio}</option>)}
-          </select>
-        </Campo>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
-          <Campo label="Próxima entrada"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
+      <nav className="navseg" style={{ maxWidth: 480, margin: "14px auto 0" }}>
+        <button className={"navseg-item" + (aba === "avisar" ? " active" : "")} onClick={() => setAba("avisar")}>Avisar limpeza</button>
+        <button className={"navseg-item" + (aba === "historico" ? " active" : "")} onClick={() => setAba("historico")}>Meu histórico</button>
+      </nav>
+
+      {aba === "avisar" ? (
+        <div className="card in" style={{ padding: 20, marginTop: 14, maxWidth: 480, margin: "14px auto 0" }}>
+          <Campo label="Qual apartamento?">
+            <select className="input" value={aptId} onChange={(e) => setAptId(e.target.value)}>
+              {aptos.map((a) => <option key={a.id} value={a.id}>{a.apelido} — {a.predio}</option>)}
+            </select>
+          </Campo>
+
+          {pendentesDoApto.length > 0 && (
+            <div style={{ fontSize: 12.5, color: "var(--gold)", background: "var(--gold-soft)", borderRadius: 10, padding: "9px 11px", marginBottom: 14, lineHeight: 1.5 }}>
+              ℹ️ Esse apartamento já tem {pendentesDoApto.length === 1 ? "uma limpeza avisada" : `${pendentesDoApto.length} limpezas avisadas`} aguardando
+              {pendentesDoApto.length === 1 ? ` (saída ${fmtDay(pendentesDoApto[0].data_saida)})` : ""}. Confira em "Meu histórico" antes de avisar de novo.
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
+            <Campo label="Próxima entrada"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
+          </div>
+
+          <Campo label="Horário de entrada do próximo hóspede">
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button type="button" onClick={() => setAntesDas15h(false)} style={{
+                flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                border: `1.5px solid ${!antesDas15h ? "var(--brand)" : "var(--line)"}`,
+                background: !antesDas15h ? "var(--brand-soft)" : "#fff", color: !antesDas15h ? "var(--brand)" : "var(--muted)",
+                transition: "all .15s var(--ease)",
+              }}>Depois das 15h</button>
+              <button type="button" onClick={() => setAntesDas15h(true)} style={{
+                flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                border: `1.5px solid ${antesDas15h ? "var(--amber)" : "var(--line)"}`,
+                background: antesDas15h ? "var(--amber-soft)" : "#fff", color: antesDas15h ? "var(--amber)" : "var(--muted)",
+                transition: "all .15s var(--ease)",
+              }}>Antes das 15h</button>
+            </div>
+          </Campo>
+          {antesDas15h && (
+            <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginTop: -6, marginBottom: 14, lineHeight: 1.5 }}>
+              ⚠️ Isso aumenta a prioridade dessa limpeza na fila. Só marque antes das 15h se for realmente necessário — quando há várias saídas no mesmo dia, liberar antes do horário padrão atrapalha a organização da equipe.
+            </div>
+          )}
+
+          {saida <= hoje() ? (
+            <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginBottom: 14, lineHeight: 1.5 }}>
+              ⚠️ Você está avisando em cima da hora. Sempre que possível, avise com mais antecedência — avisos no mesmo dia ou de madrugada atrapalham a organização da equipe.
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14, lineHeight: 1.5 }}>
+              💡 Avise com a maior antecedência possível — ajuda bastante a equipe a se organizar.
+            </div>
+          )}
+
+          <Campo label="Alguma observação? (opcional)">
+            <textarea className="input" rows={3} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: trocar roupa de cama, sofá manchado…" style={{ resize: "vertical" }} />
+          </Campo>
+          <button className="btn" onClick={enviar} disabled={enviando || !aptId}>{enviando ? "Enviando…" : "Enviar aviso"}</button>
         </div>
+      ) : (
+        <Historico limpezas={limpezas} />
+      )}
+    </div>
+  );
+}
 
-        <Campo label="Horário de entrada do próximo hóspede">
-          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-            <button type="button" onClick={() => setAntesDas15h(false)} style={{
-              flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-              border: `1.5px solid ${!antesDas15h ? "var(--brand)" : "var(--line)"}`,
-              background: !antesDas15h ? "var(--brand-soft)" : "#fff", color: !antesDas15h ? "var(--brand)" : "var(--muted)",
-              transition: "all .15s var(--ease)",
-            }}>Depois das 15h</button>
-            <button type="button" onClick={() => setAntesDas15h(true)} style={{
-              flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-              border: `1.5px solid ${antesDas15h ? "var(--amber)" : "var(--line)"}`,
-              background: antesDas15h ? "var(--amber-soft)" : "#fff", color: antesDas15h ? "var(--amber)" : "var(--muted)",
-              transition: "all .15s var(--ease)",
-            }}>Antes das 15h</button>
-          </div>
-        </Campo>
-        {antesDas15h && (
-          <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginTop: -6, marginBottom: 14, lineHeight: 1.5 }}>
-            ⚠️ Isso aumenta a prioridade dessa limpeza na fila. Só marque antes das 15h se for realmente necessário — quando há várias saídas no mesmo dia, liberar antes do horário padrão atrapalha a organização da equipe.
-          </div>
-        )}
+function Historico({ limpezas }) {
+  const mesAtual = hoje().slice(0, 7);
+  const mesNome = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const pendentes = limpezas.filter((l) => l.status === "pendente");
+  const concluidasMes = limpezas.filter((l) => l.status === "pronto" && l.data_saida?.slice(0, 7) === mesAtual);
+  const totalMes = concluidasMes.reduce((s, l) => s + Number(l.valor), 0);
 
-        {saida <= hoje() ? (
-          <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginBottom: 14, lineHeight: 1.5 }}>
-            ⚠️ Você está avisando em cima da hora. Sempre que possível, avise com mais antecedência — avisos no mesmo dia ou de madrugada atrapalham a organização da equipe.
-          </div>
-        ) : (
-          <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14, lineHeight: 1.5 }}>
-            💡 Avise com a maior antecedência possível — ajuda bastante a equipe a se organizar.
-          </div>
-        )}
+  return (
+    <div style={{ maxWidth: 480, margin: "14px auto 0" }}>
+      <div className="in" style={{
+        background: "linear-gradient(155deg,var(--ink2),#3B2230)", color: "#fff", borderRadius: "var(--radius-xl)",
+        padding: 20, boxShadow: "var(--shadow-md)", position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Faturamento — {mesNome}</div>
+        <div style={{ fontSize: 32, fontWeight: 800, marginTop: 3, fontFamily: "'Bricolage Grotesque',sans-serif" }}>{brl(totalMes)}</div>
+        <div style={{ fontSize: 12.5, color: "#B99298", marginTop: 8 }}>{concluidasMes.length} {concluidasMes.length === 1 ? "limpeza concluída" : "limpezas concluídas"} este mês</div>
+      </div>
 
-        <Campo label="Alguma observação? (opcional)">
-          <textarea className="input" rows={3} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: trocar roupa de cama, sofá manchado…" style={{ resize: "vertical" }} />
-        </Campo>
-        <button className="btn" onClick={enviar} disabled={enviando || !aptId}>{enviando ? "Enviando…" : "Enviar aviso"}</button>
+      <div className="section-label">Aguardando limpeza ({pendentes.length})</div>
+      {pendentes.length === 0 ? (
+        <div className="card" style={{ borderStyle: "dashed", padding: 18, textAlign: "center", color: "var(--muted)", marginTop: 10, fontSize: 13.5 }}>
+          Nenhuma limpeza avisada no momento. 🌿
+        </div>
+      ) : pendentes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+
+      <div className="section-label">Concluídas — {mesNome}</div>
+      {concluidasMes.length === 0 ? (
+        <div className="card" style={{ borderStyle: "dashed", padding: 18, textAlign: "center", color: "var(--muted)", marginTop: 10, fontSize: 13.5 }}>
+          Nenhuma limpeza concluída este mês ainda.
+        </div>
+      ) : concluidasMes.map((l) => <ItemHistorico key={l.id} l={l} />)}
+    </div>
+  );
+}
+
+function ItemHistorico({ l }) {
+  const feita = l.status === "pronto";
+  return (
+    <div className="card" style={{ marginTop: 9, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div>
+        <div style={{ fontWeight: 700 }}>{l.apartamento}</div>
+        <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+          Saída {fmtDay(l.data_saida)}{l.data_entrada ? ` · Entrada ${fmtDay(l.data_entrada)}` : ""}
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <span className="chip" style={{ background: feita ? "var(--brand-soft)" : "var(--gold-soft)", color: feita ? "var(--brand)" : "var(--gold)" }}>
+          {feita ? "Feita" : "Aguardando"}
+        </span>
+        <div style={{ fontWeight: 700, marginTop: 5, fontSize: 13.5 }}>{brl(l.valor)}</div>
       </div>
     </div>
   );

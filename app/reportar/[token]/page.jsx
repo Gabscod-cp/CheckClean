@@ -126,7 +126,7 @@ function ReportarForm() {
         }}>🧹</div>
         <div>
           <div style={{ fontWeight: 700 }}>{primeiroNome ? `Oi, ${primeiroNome}! 👋` : "Facilidade ADM"}</div>
-          <div style={{ fontSize: 13, color: "#3B5B54" }}>Avise limpezas e acompanhe seu faturamento por aqui.</div>
+          <div style={{ fontSize: 13, color: "#3B5B54" }}>Avise limpezas e acompanhe o que deve ser pago por aqui.</div>
         </div>
       </div>
 
@@ -200,10 +200,15 @@ function ReportarForm() {
 }
 
 function Historico({ limpezas }) {
-  const mesAtual = hoje().slice(0, 7);
-  const mesNome = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const [mesRef, setMesRef] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const agora = new Date();
+  const ehMesAtual = mesRef.getFullYear() === agora.getFullYear() && mesRef.getMonth() === agora.getMonth();
+  const mesChave = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, "0")}`;
+  const mesNome = mesRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const mudarMes = (delta) => setMesRef((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+
   const pendentes = limpezas.filter((l) => l.status === "pendente");
-  const concluidasMes = limpezas.filter((l) => l.status === "pronto" && l.data_saida?.slice(0, 7) === mesAtual);
+  const concluidasMes = limpezas.filter((l) => l.status === "pronto" && l.data_saida?.slice(0, 7) === mesChave);
   const totalMes = concluidasMes.reduce((s, l) => s + Number(l.valor), 0);
 
   return (
@@ -212,9 +217,21 @@ function Historico({ limpezas }) {
         background: "linear-gradient(155deg,var(--ink2),#3B2230)", color: "#fff", borderRadius: "var(--radius-xl)",
         padding: 20, boxShadow: "var(--shadow-md)", position: "relative", overflow: "hidden",
       }}>
-        <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Faturamento — {mesNome}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 12, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Total a pagar — {mesNome}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            <button onClick={() => mudarMes(-1)} aria-label="Mês anterior" style={{
+              width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
+              color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1,
+            }}>‹</button>
+            <button onClick={() => mudarMes(1)} disabled={ehMesAtual} aria-label="Próximo mês" style={{
+              width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
+              color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1, opacity: ehMesAtual ? 0.4 : 1,
+            }}>›</button>
+          </div>
+        </div>
         <div style={{ fontSize: 32, fontWeight: 800, marginTop: 3, fontFamily: "'Bricolage Grotesque',sans-serif" }}>{brl(totalMes)}</div>
-        <div style={{ fontSize: 12.5, color: "#B99298", marginTop: 8 }}>{concluidasMes.length} {concluidasMes.length === 1 ? "limpeza concluída" : "limpezas concluídas"} este mês</div>
+        <div style={{ fontSize: 12.5, color: "#B99298", marginTop: 8 }}>{concluidasMes.length} {concluidasMes.length === 1 ? "limpeza concluída" : "limpezas concluídas"} nesse mês</div>
       </div>
 
       <div className="section-label">Aguardando limpeza ({pendentes.length})</div>
@@ -227,7 +244,7 @@ function Historico({ limpezas }) {
       <div className="section-label">Concluídas — {mesNome}</div>
       {concluidasMes.length === 0 ? (
         <div className="card" style={{ borderStyle: "dashed", padding: 18, textAlign: "center", color: "var(--muted)", marginTop: 10, fontSize: 13.5 }}>
-          Nenhuma limpeza concluída este mês ainda.
+          Nenhuma limpeza concluída nesse mês.
         </div>
       ) : concluidasMes.map((l) => <ItemHistorico key={l.id} l={l} />)}
     </div>

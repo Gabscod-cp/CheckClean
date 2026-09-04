@@ -5,7 +5,6 @@ import { aptosDoProprietario, limpezasDoProprietario, registrarLimpeza } from ".
 
 const brl = (n) => "R$ " + Number(n || 0).toLocaleString("pt-BR");
 const hoje = () => new Date().toISOString().slice(0, 10);
-const maisDias = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const fmtDay = (iso) => { if (!iso) return "—"; const [, m, d] = iso.split("-"); return `${d}/${m}`; };
 
 export default function Reportar() {
@@ -26,7 +25,7 @@ function ReportarForm() {
   const [erro, setErro] = useState("");
   const [aptId, setAptId] = useState("");
   const [saida, setSaida] = useState(hoje());
-  const [entrada, setEntrada] = useState(maisDias(2));
+  const [entrada, setEntrada] = useState("");
   const [antesDas15h, setAntesDas15h] = useState(false);
   const [obs, setObs] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -152,8 +151,13 @@ function ReportarForm() {
 
           <div style={{ display: "flex", gap: 12 }}>
             <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
-            <Campo label="Próxima entrada"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
+            <Campo label="Próxima entrada (opcional)"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
           </div>
+          {!entrada && (
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: -8, marginBottom: 14, lineHeight: 1.5 }}>
+              💡 Ainda não sabe quando entra o próximo hóspede? Pode deixar em branco.
+            </div>
+          )}
 
           <Campo label="Horário de entrada do próximo hóspede">
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
@@ -207,6 +211,11 @@ function Historico({ limpezas }) {
   const mesNome = mesRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const mudarMes = (delta) => setMesRef((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 
+  // Não deixa voltar pra um mês anterior ao primeiro registro que existe.
+  const mesesComDados = limpezas.map((l) => l.data_saida?.slice(0, 7)).filter(Boolean);
+  const mesMaisAntigo = mesesComDados.length ? mesesComDados.reduce((min, m) => (m < min ? m : min)) : mesChave;
+  const podeVoltar = mesChave > mesMaisAntigo;
+
   const pendentes = limpezas.filter((l) => l.status === "pendente");
   const concluidasMes = limpezas.filter((l) => l.status === "pronto" && l.data_saida?.slice(0, 7) === mesChave);
   const totalMes = concluidasMes.reduce((s, l) => s + Number(l.valor), 0);
@@ -223,22 +232,18 @@ function Historico({ limpezas }) {
         }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
           <div style={{ fontSize: 12.5, color: "#CBA9B0", textTransform: "capitalize", fontWeight: 600 }}>Fechamento — {mesNome}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-            <button onClick={() => mudarMes(-1)} aria-label="Mês anterior" style={{
-              width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
-              color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1,
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <button onClick={() => mudarMes(-1)} disabled={!podeVoltar} aria-label="Mês anterior" style={{
+              width: 38, height: 38, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
+              color: "#fff", fontWeight: 700, fontSize: 17, lineHeight: 1, opacity: podeVoltar ? 1 : 0.35,
             }}>‹</button>
             <button onClick={() => mudarMes(1)} disabled={ehMesAtual} aria-label="Próximo mês" style={{
-              width: 25, height: 25, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
-              color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1, opacity: ehMesAtual ? 0.4 : 1,
+              width: 38, height: 38, borderRadius: 999, border: "none", background: "rgba(255,255,255,.14)",
+              color: "#fff", fontWeight: 700, fontSize: 17, lineHeight: 1, opacity: ehMesAtual ? 0.35 : 1,
             }}>›</button>
           </div>
         </div>
         <div style={{ fontSize: 36, fontWeight: 800, marginTop: 3, fontFamily: "'Bricolage Grotesque',sans-serif", position: "relative" }}>{brl(totalMes)}</div>
-        <div style={{ display: "flex", gap: 26, marginTop: 15, fontSize: 12.5, position: "relative" }}>
-          <div><div style={{ color: "#B99298" }}>Concluídas nesse mês</div><div style={{ fontWeight: 700, fontSize: 16.5, marginTop: 2 }}>{concluidasMes.length}</div></div>
-          <div><div style={{ color: "#B99298" }}>Aguardando limpeza</div><div style={{ fontWeight: 700, fontSize: 16.5, marginTop: 2 }}>{pendentes.length}</div></div>
-        </div>
       </div>
 
       <div className="section-label">Aguardando limpeza ({pendentes.length})</div>
@@ -286,5 +291,5 @@ function ItemHistorico({ l }) {
 }
 
 function Campo({ label, children }) {
-  return <label style={{ display: "block", marginBottom: 14, flex: 1 }}><span className="field-label">{label}</span>{children}</label>;
+  return <label style={{ display: "block", marginBottom: 14, flex: 1, minWidth: 0 }}><span className="field-label">{label}</span>{children}</label>;
 }

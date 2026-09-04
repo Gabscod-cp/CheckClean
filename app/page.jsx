@@ -204,15 +204,15 @@ function Hoje({ limpezas, onDone }) {
         <div className="section-label" style={{ margin: 0 }}>Relatório por proprietário</div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 10 }}>
           <button onClick={() => mudarMesRelatorio(-1)} aria-label="Mês anterior" style={{
-            width: 28, height: 28, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
-            color: "var(--ink)", fontWeight: 700, fontSize: 14, lineHeight: 1, flexShrink: 0,
+            width: 34, height: 34, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
+            color: "var(--ink)", fontWeight: 700, fontSize: 15, lineHeight: 1, flexShrink: 0,
           }}>‹</button>
           <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 92, textAlign: "center", textTransform: "capitalize", color: "var(--ink)" }}>
             {mesRelatorio.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
           </span>
           <button onClick={() => mudarMesRelatorio(1)} disabled={relatorioEhMesAtual} aria-label="Próximo mês" style={{
-            width: 28, height: 28, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
-            color: relatorioEhMesAtual ? "var(--faint)" : "var(--ink)", fontWeight: 700, fontSize: 14, lineHeight: 1,
+            width: 34, height: 34, borderRadius: 999, border: "1px solid var(--line)", background: "#fff",
+            color: relatorioEhMesAtual ? "var(--faint)" : "var(--ink)", fontWeight: 700, fontSize: 15, lineHeight: 1,
             opacity: relatorioEhMesAtual ? 0.5 : 1, flexShrink: 0,
           }}>›</button>
         </div>

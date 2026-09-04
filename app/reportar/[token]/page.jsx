@@ -62,7 +62,7 @@ function ReportarForm() {
   async function enviar() {
     setEnviando(true);
     try {
-      await registrarLimpeza(token, aptId, saida, entrada, obs.trim(), antesDas15h);
+      await registrarLimpeza(token, aptId, saida, entrada, obs.trim(), entrada ? antesDas15h : false);
       setOk(true);
       await carregarHistorico();
     } catch (e) {
@@ -144,8 +144,7 @@ function ReportarForm() {
 
           {pendentesDoApto.length > 0 && (
             <div style={{ fontSize: 12.5, color: "var(--gold)", background: "var(--gold-soft)", borderRadius: 10, padding: "9px 11px", marginBottom: 14, lineHeight: 1.5 }}>
-              ℹ️ Esse apartamento já tem {pendentesDoApto.length === 1 ? "uma limpeza avisada" : `${pendentesDoApto.length} limpezas avisadas`} aguardando
-              {pendentesDoApto.length === 1 ? ` (saída ${fmtDay(pendentesDoApto[0].data_saida)})` : ""}. Confira em "Meu histórico" antes de avisar de novo.
+              ℹ️ Já tem {pendentesDoApto.length === 1 ? "uma limpeza aguardando" : `${pendentesDoApto.length} limpezas aguardando`} pra esse apartamento. Confira em "Meu histórico".
             </div>
           )}
 
@@ -153,41 +152,34 @@ function ReportarForm() {
             <Campo label="Quando desocupa"><input className="input" type="date" value={saida} onChange={(e) => setSaida(e.target.value)} /></Campo>
             <Campo label="Próxima entrada (opcional)"><input className="input" type="date" value={entrada} onChange={(e) => setEntrada(e.target.value)} /></Campo>
           </div>
-          {!entrada && (
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: -8, marginBottom: 14, lineHeight: 1.5 }}>
-              💡 Ainda não sabe quando entra o próximo hóspede? Pode deixar em branco.
-            </div>
-          )}
 
-          <Campo label="Horário de entrada do próximo hóspede">
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button type="button" onClick={() => setAntesDas15h(false)} style={{
-                flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-                border: `1.5px solid ${!antesDas15h ? "var(--brand)" : "var(--line)"}`,
-                background: !antesDas15h ? "var(--brand-soft)" : "#fff", color: !antesDas15h ? "var(--brand)" : "var(--muted)",
-                transition: "all .15s var(--ease)",
-              }}>Depois das 15h</button>
-              <button type="button" onClick={() => setAntesDas15h(true)} style={{
-                flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-                border: `1.5px solid ${antesDas15h ? "var(--amber)" : "var(--line)"}`,
-                background: antesDas15h ? "var(--amber-soft)" : "#fff", color: antesDas15h ? "var(--amber)" : "var(--muted)",
-                transition: "all .15s var(--ease)",
-              }}>Antes das 15h</button>
-            </div>
-          </Campo>
-          {antesDas15h && (
+          {entrada && (
+            <Campo label="Horário de entrada do hóspede">
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button type="button" onClick={() => setAntesDas15h(false)} style={{
+                  flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                  border: `1.5px solid ${!antesDas15h ? "var(--brand)" : "var(--line)"}`,
+                  background: !antesDas15h ? "var(--brand-soft)" : "#fff", color: !antesDas15h ? "var(--brand)" : "var(--muted)",
+                  transition: "all .15s var(--ease)",
+                }}>Depois das 15h</button>
+                <button type="button" onClick={() => setAntesDas15h(true)} style={{
+                  flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                  border: `1.5px solid ${antesDas15h ? "var(--amber)" : "var(--line)"}`,
+                  background: antesDas15h ? "var(--amber-soft)" : "#fff", color: antesDas15h ? "var(--amber)" : "var(--muted)",
+                  transition: "all .15s var(--ease)",
+                }}>Antes das 15h</button>
+              </div>
+            </Campo>
+          )}
+          {entrada && antesDas15h && (
             <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginTop: -6, marginBottom: 14, lineHeight: 1.5 }}>
-              ⚠️ Isso aumenta a prioridade dessa limpeza na fila. Só marque antes das 15h se for realmente necessário — quando há várias saídas no mesmo dia, liberar antes do horário padrão atrapalha a organização da equipe.
+              ⚠️ Aumenta a prioridade — use só quando for realmente necessário.
             </div>
           )}
 
-          {saida <= hoje() ? (
+          {saida <= hoje() && (
             <div style={{ fontSize: 12.5, color: "var(--amber)", background: "var(--amber-soft)", borderRadius: 10, padding: "9px 11px", marginBottom: 14, lineHeight: 1.5 }}>
-              ⚠️ Você está avisando em cima da hora. Sempre que possível, avise com mais antecedência — avisos no mesmo dia ou de madrugada atrapalham a organização da equipe.
-            </div>
-          ) : (
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14, lineHeight: 1.5 }}>
-              💡 Avise com a maior antecedência possível — ajuda bastante a equipe a se organizar.
+              ⚠️ Avisando em cima da hora — quando der, avise com mais antecedência.
             </div>
           )}
 
